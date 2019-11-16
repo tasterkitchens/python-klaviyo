@@ -20,6 +20,9 @@ pip-log.txt
 .coverage
 .tox
 
+# PYENV
+.python-version
+
 #Translations
 *.mo
 

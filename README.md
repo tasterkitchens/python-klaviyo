@@ -56,36 +56,41 @@ You can then easily use Klaviyo to track events or identify people.  Note, track
 You can get metrics, a timeline of events and export analytics for a metric.  See here for more https://www.klaviyo.com/docs/api/metrics
 
     # return all metrics
-    client.metrics()
+    client.get_metrics()
     
-    # you can paginate through using the page offset
-    client.metrics(page=1)
-    
+    # you can paginate through using the page offset and count param
+    client.get_metrics(page=1, count=50)
     
     # return a timeline of all metrics
-    client.metric_timeline()
+    # default params for getting metrics - since=None; count=100;  sort='desc'
+    client.get_metrics_timeline()
     
     # add a since param to get data 
     # you can paginate through using a Unix timestamp or a UUID obtained from the next attribute
-    client.metric_timeline(since=since)
+    client.get_metrics_timeline(since=since)
     
-    # you can query a specific metric id by
-    client.metric_timeline(metric_id=metric_id)
+    # you can query for a specific metric id
+    client.get_metric_timeline_by_id(metric_id)
     
-    # you can export metric data
+    # you can export metric data https://www.klaviyo.com/docs/api/metrics#metric-export
+    params:
+        start_date
+        end_date
+        unit
+        measurement
+        where 
+        by
+        count
+
     client.metric_export(metric_id)
-    
 
 You can create, update, read, and delete lists.  See here for more information https://www.klaviyo.com/docs/api/v2/lists
 
     # to get all lists
-    client.lists()
+    client.get_lists()
     
     # to add a new list
-    client.lists(
-      list_name = 'YOUR_LIST_NAME'  ,
-      method = 'POST'
-    )
+    client.create_list(list_name)
     
     # get list details
     client.list(list_id)

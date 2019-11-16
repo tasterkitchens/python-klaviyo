@@ -1,21 +1,21 @@
+import base64
+import datetime
+import json
+import time
+
+import requests
+
 try:
    from urllib.parse import urlencode
 except ImportError:
    from urllib import urlencode
 
-import base64
-import json
-import datetime
-import time
 
-import requests
-
-KLAVIYO_API_SERVER = 'https://a.klaviyo.com/api'
 KLAVIYO_DATA_VARIABLE = 'data'
 PUBLIC_TOKEN_REQUESTS = ('identify', 'track')
 TRACK_ONCE_KEY = '__track_once__'
 
-TIMELINE = 'timeline'
+
 
 CUD_REQUEST_TYPE = ("DELETE", "POST", "PUT")
 
@@ -23,7 +23,28 @@ class KlaviyoException(Exception):
     pass
 
 class Klaviyo(object):
-    API_VERSION = '2.0.4'
+    KLAVIYO_API_SERVER = 'https://a.klaviyo.com/api'
+    V1_API = 'v1'
+    V2_API = 'v2'
+
+    # PUBLIC API PATHS
+    IDENTIFY = 'identify'
+    TRACK = 'track'
+    
+    # PRIVATE API PATHS
+    EXPORT = 'export'
+    LIST = 'list'
+    LISTS = 'lists'
+    METRIC = 'metric'
+    METRICS = 'metrics'
+    TIMELINE = 'timeline'
+
+    # HTTP METHODS
+    HTTP_DELETE = 'delete'
+    HTTP_GET = 'get'
+    HTTP_POST = 'post'
+    HTTP_PUT = 'put'
+
     def __init__(self, public_token=None, private_token=None, api_server=KLAVIYO_API_SERVER):
         self.public_token = public_token
         self.private_token = private_token
@@ -63,8 +84,8 @@ class Klaviyo(object):
             params['ip'] = ip_address
 
         query_string = self._build_query_string(params, is_test)
-        return self._request('track', query_string)
-    
+        return self._pubic_request(self.TRACK, query_string)
+
     def track_once(self, event, email=None, id=None, properties=None, customer_properties=None,
         timestamp=None, ip_address=None, is_test=False):
         
@@ -75,58 +96,75 @@ class Klaviyo(object):
         
         return self.track(event, email=email, id=id, properties=properties, customer_properties=customer_properties,
             ip_address=ip_address, is_test=is_test)
-    
+
     def identify(self, email=None, id=None, properties=None, is_test=False):
         if email is None and id is None:
             raise KlaviyoException('You must identify a user by email or ID.')
-        
+
         if properties is None:
             properties = {}
-        
+
         if email: properties['email'] = email
         if id: properties['id'] = id
-        
+
         query_string = self._build_query_string({
             'token' : self.public_token,
             'properties' : properties,
         }, is_test)
-        return self._request('identify', query_string)
-    
-    def metrics(self, page=0, count=50):
+
+        return self._pubic_request(self.IDENTIFY, query_string)
+
+    def get_metrics(self, page=0, count=50):
         """
-        args:
+        Args:
             page: int() page of results to return
             count: int() number of results to return
-        return:
-            dict with data list of metrics
+        Return:
+            (dict): with data list of metrics
         """
         params = {
             'page': page,
             'count': count
         }
-        return self._request('metrics', params)
-
-    def metric_timeline(self, metric_id=None, since=None, count=100, sort='desc'):
+        return self._v1_request(self.METRICS, self.HTTP_GET, params)
+    
+    def get_metrics_timeline(self, since=None, count=100, sort='desc'):
         """"
-        args:
-            since: str() or int() next attribute of the previous api call or unix timestamp
-            count: int() number of events retuned
-            sort: str() sort order for timeline
+        Fetches all of the metrics and it's events regardless of the statistic
+        Args:
+            since (str or int): next attribute of the previous api call or unix timestamp
+            count (int): number of events retuned
+            sort (str): sort order for timeline
+        Returns:
+            (dict): metric timeline information
         """
-        
         params = {
             'count': count,
             'sort': sort,
             'since': since
         }
         params = self._filter_params(params)
-        
-        if metric_id:
-            url = '{}/{}/{}'.format('metric', metric_id, TIMELINE)
-        else:
-            url = '{}/{}'.format('metrics', TIMELINE)
+        url = '{}/{}'.format(self.METRICS, TIMELINE)
 
-        return self._request(url, params)
+        return self._v1_request(url, self.HTTP_GET, params)
+        
+    def get_metric_timeline_by_id(self, metric_id, since=None, count=100, sort='desc'):
+        """"
+        Args:
+            metric_id (str): metric ID for the statistic
+            since (str or int): next attribute of the previous api call or unix timestamp
+            count (int): number of events retuned
+            sort (str): sort order for timeline
+        """
+        params = {
+            'count': count,
+            'sort': sort,
+            'since': since
+        }
+        params = self._filter_params(params)
+        url = '{}/{}/{}'.format(self.METRIC, metric_id, TIMELINE)
+
+        return self._v1_request(url, self.HTTP_GET, params)
 
     def metric_export(
         self, 
@@ -150,10 +188,10 @@ class Klaviyo(object):
             'count': count
         }
         params = self._filter_params(params)
-        
-        url = '{}/{}/{}'.format('metric', metric_id, 'export')
-        
-        return self._request(url, params)
+
+        url = '{}/{}/{}'.format(self.METRIC, metric_id, self.EXPORT)
+
+        return self._v1_request(url, self.HTTP_GET, params)
 
     def lists(self, list_name=None, method='GET'):
         """
@@ -169,23 +207,38 @@ class Klaviyo(object):
             params = {
                 'list_name': list_name
             }
-            return self._request('lists', params, method=method, api_version=api_version)
+            return self._v2_request('lists', params, method=method, api_version=api_version)
+            
+    def get_lists(self):
+        """
+        Returns a list of Klaviyo lists
+        """
+        return self._v2_request('lists', self.HTTP_GET)
+    
+    def create_lists(self, list_name):
+        """
+        This will create a new list in Klaviyo
+        Args:
+            list_name (str): A list name
+        """
+        return self._v2_request('lists', self.HTTP_POST, list_name)
 
-    def list(self, list_id, list_name=None, method="GET",):
+    def get_list_by_id(self, list_id):
         """
         args:
             list_id: str() the list id
-            list_name: str() name of the list - PUT to change it
         """
-        if method == 'POST':
-            raise KlaviyoException('The list endpoint only accepts GET, PUT, and DELETE methods')
-        api_version = 'v2'
-        params = {
-            "list_name": list_name
-        }
-        params = self._filter_params(params)
-        return self._request('list/{}'.format(list_id), params, method=method, api_version=api_version)
+        return self._v2_request('{}/{}'.format(self.LIST, list_id), self.HTTP_GET)
+    
+    def update_list_by_id(self, list_id, list_name):
+        """
+        """
+        params = dict({
+            'list_name': list_name
+        })
 
+        return self._v2_request('{}/{}'.format(self.LIST, list_id), self.HTTP_PUT, params)
+    
     def list_subscription(self, list_id, data, subscription_type='subscribe', method="GET"):
         """
         args:
@@ -308,91 +361,92 @@ class Klaviyo(object):
         })
         
     def _filter_params(self, params):
+        """
+        
+        """
         return dict((k,v) for k,v in params.items() if v is not None)
 
     def _build_marker_param(self, marker):
+        """
+        
+        """
         params = {}
         if marker:
             params['marker'] = marker
         return params
 
-    def _request(self, path, params={}, method="GET", api_version=None):
+    def __is_valid_request_option(self, type='private'):
         """
-        A request helper method
-        # TODO we should break this up to do v1_request, v2_request
+        """
+        if type == 'public' and not self.public_token:
+            raise KlaviyoException('Public token is not defined')
+
+        if type == 'private' and not self.private_token:
+            raise KlaviyoException('Private token is not defined')
+
+    def _v2_request(self, path, method, params):
+        """
+        """
+        self.__is_valid_request_option()
+
+        params = json.dumps(params)
+        
+        url = '{}/{}/{}'.format(
+            self.api_server, 
+            self.V2_API, 
+            path, 
+        )
+
+        params.update({
+            "api_key": self.private_token
+        })
+
+        return self.__request(method, url, params).json()
+
+    def _v1_request(self, path, method, params={}):
+        """
+        """
+        self.__is_valid_request_option()
+        url = '{}/{}/{}'.format(
+            self.api_server, 
+            self.V1_API, 
+            path, 
+        )
+
+        params.update({
+            "api_key": self.private_token
+        })
+
+        return self.__request(method, url, params).json()
+
+    def _pubic_request(self, path, querystring):
+        """
+        This handles track and identify calls, always a get request
         Args:
-            path (str): the api endpoint to make a request to
-            params (dict): query params for the api
-            method (str): HTTP methods
-            api_version (str): Klaviyo api version
+            path (str): track or identify
+            querystring (str): urlencoded & b64 encoded string
         Returns:
-            (Klaviyo API Response): depending on the call this could be a dictionary, list of dicts, or boolean
+            (str): 1 or 0 (pass/fail)
+        """
+        self.__is_valid_request_option('public')
+
+        url = '{}/{}?{}'.format(self.api_server, path, querystring)
+        return self.__request('get', url)
+
+    def __request(self, method, url, params={}):
+        """
+        The method that executes the request being made
+        Args:
+            method (str): the type of HTTP request
+            url (str): the url to make the request to
+            params (dict or json): the body of the request
+        Returns:
+            (str, dict): public returns 1 or 0  (pass/fail)
+                        v1/v2 returns dict
         """
         headers = {
             'Content-Type': "application/json",
             'User-Agent': 'Klaviyo/Python {}'.format(self.API_VERSION)
         }
-        if not api_version:
-            api_version = 'v1'
-        # to handle the track and identify requests
-        if path in PUBLIC_TOKEN_REQUESTS:
-            if not self.public_token:
-                raise KlaviyoException('Public token is not defined')
-
-            url = '{}/{}?{}'.format(self.api_server, path, params)
-            response = getattr(requests, method.lower())(url, headers=headers)
-
-            return response.text == '1'
         
-        # this is to handle all the private api requests
-        else:
-            if not self.private_token:
-                raise KlaviyoException('Private token is not defined')
-
-            if method.upper() == "GET":
-                params.update({
-                    "api_key": self.private_token
-                })
-
-                if api_version == 'v2':
-                    params = json.dumps(params)
-                    
-                    url = '{}/{}/{}'.format(
-                        self.api_server, 
-                        api_version, 
-                        path, 
-                    )
-                    response = getattr(requests, method.lower())(url, headers=headers, data=params)
-
-                else:
-                    params = urlencode(params)
-                    url = '{}/{}/{}?{}'.format(
-                        self.api_server, 
-                        api_version, 
-                        path, 
-                        params
-                    )
-                    
-                    response = getattr(requests, method.lower())(url, headers=headers)
-
-                return response.json()
-                
-            elif method.upper() in CUD_REQUEST_TYPE:
-                url = '{}/{}/{}'.format(
-                    self.api_server,
-                    api_version,
-                    path
-                )
-                params.update({
-                    "api_key": self.private_token
-                })
-                if api_version == 'v2':
-                    params = json.dumps(params)
-
-                response = getattr(requests, method.lower())(url, headers=headers, data=params)
-                
-                # some successful posts/puts/deletes don't return json and return empty str, so let's return a 1 showing success as errors will always be json
-                try:
-                    return response.json()
-                except ValueError:
-                    return '1'
+        return getattr(requests, method.lower())(url, headers=headers, data=params)
