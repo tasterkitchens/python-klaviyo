@@ -1,12 +1,10 @@
 from klaviyo import Klaviyo
 
 class Profiles(Klaviyo):
-    
-    ######################
-    # PROFILE API
-    ######################
+    PERSON = 'person'
+
     def get_profile(self, profile_id):
-        return self._v1_request('person/{}'.format(profile_id))
+        return self._v1_request('{}/{}'.format(self.PERSON, profile_id))
 
     def get_profile_metrics_timeline(self, profile_id, since=None, count=100, sort='desc'):
         """
@@ -23,8 +21,8 @@ class Profiles(Klaviyo):
         }
         params = self._filter_params(params)
 
-        return self._request('person/{}/metrics/timeline'.format(profile_id), params)
-        
+        return self._request('{}/{}/metrics/timeline'.format(self.PERSON, profile_id), params)
+
     def get_profile_metric_timeline(self, profile_id, metric_id, since=None, count=100, sort='desc'):
         """
         args:
@@ -41,4 +39,4 @@ class Profiles(Klaviyo):
         }
         params = self._filter_params(params)
 
-        return self._request('person/{}/metric/{}/timeline'.format(profile_id, metric_id), params)
+        return self._request('{}/{}/metric/{}/timeline'.format(self.PERSON, profile_id, metric_id), params)

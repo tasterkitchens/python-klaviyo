@@ -14,19 +14,14 @@ from lists import List
 from metrics import Metrics
 from public import Public
 
-KLAVIYO_DATA_VARIABLE = 'data'
-PUBLIC_TOKEN_REQUESTS = ('identify', 'track')
 TRACK_ONCE_KEY = '__track_once__'
-
-
-
-CUD_REQUEST_TYPE = ("DELETE", "POST", "PUT")
 
 class KlaviyoException(Exception):
     pass
 
 class Klaviyo(object):
     KLAVIYO_API_SERVER = 'https://a.klaviyo.com/api'
+    KLAVIYO_DATA_VARIABLE = 'data'
     V1_API = 'v1'
     V2_API = 'v2'
 
@@ -64,7 +59,7 @@ class Klaviyo(object):
 
     def _build_query_string(self, params, is_test):
         return urlencode({
-            KLAVIYO_DATA_VARIABLE : base64.b64encode(json.dumps(params).encode('utf-8')),
+            self.KLAVIYO_DATA_VARIABLE: base64.b64encode(json.dumps(params).encode('utf-8')),
             'test' : 1 if is_test else 0,
         })
         
@@ -73,7 +68,7 @@ class Klaviyo(object):
         return dict((k,v) for k,v in params.items() if v is not None)
 
     def _build_marker_param(self, marker):
-        """ A helper for the marker parm """
+        """ A helper for the marker param """
         params = {}
         if marker:
             params['marker'] = marker
@@ -91,13 +86,17 @@ class Klaviyo(object):
         if type == self.PRIVATE and not self.private_token:
             raise KlaviyoException('Private token is not defined')
 
-    def _v2_request(self, path, method, params):
+    def _v2_request(self, path, method, params={}):
         """
+        A method that handles the v2 api requests
+        Args:
+            path (str): url we make a request to
+            method (str): http method
+            params (dict): 
+        Returns:
+            (dict or arr): response from Klaviyo API
         """
-        self.__is_valid_request_option()
 
-        params = json.dumps(params)
-        
         url = '{}/{}/{}'.format(
             self.api_server, 
             self.V2_API, 
@@ -105,15 +104,15 @@ class Klaviyo(object):
         )
 
         params.update({
-            "api_key": self.private_token
+            'api_key': self.private_token
         })
+        params = json.dumps(params)
 
         return self.__request(method, url, params).json()
 
     def _v1_request(self, path, method, params={}):
         """
         """
-        self.__is_valid_request_option()
         url = '{}/{}/{}'.format(
             self.api_server, 
             self.V1_API, 
@@ -121,7 +120,7 @@ class Klaviyo(object):
         )
 
         params.update({
-            "api_key": self.private_token
+            'api_key': self.private_token
         })
 
         return self.__request(method, url, params).json()
@@ -135,12 +134,11 @@ class Klaviyo(object):
         Returns:
             (str): 1 or 0 (pass/fail)
         """
-        self.__is_valid_request_option(request_type='public')
 
         url = '{}/{}?{}'.format(self.api_server, path, querystring)
-        return self.__request('get', url)
+        return self.__request('get', url, request_type='public')
 
-    def __request(self, method, url, params={}):
+    def __request(self, method, url, params={}, request_type='private'):
         """
         The method that executes the request being made
         Args:
@@ -151,9 +149,10 @@ class Klaviyo(object):
             (str, dict): public returns 1 or 0  (pass/fail)
                         v1/v2 returns dict
         """
+        self.__is_valid_request_option(request_type=request_type)
         headers = {
             'Content-Type': "application/json",
             'User-Agent': 'Klaviyo/Python {}'.format(self.API_VERSION)
         }
-        
+
         return getattr(requests, method.lower())(url, headers=headers, data=params)

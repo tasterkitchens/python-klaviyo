@@ -4,6 +4,7 @@ from klaviyo import Klaviyo
 class Lists(Klaviyo):
     LIST = 'list'
     LISTS = 'lists'
+    SUBSCRIBE = 'subscribe'
 
     def __init__(self):
         pass
@@ -35,13 +36,32 @@ class Lists(Klaviyo):
         })
 
         return self._v2_request('{}/{}'.format(self.LIST, list_id), self.HTTP_PUT, params)
+        
+    def delete_list(self, list_id):
+        """
+        
+        """
+        return self._v2_request('{}/{}'.format(self.LIST, list_id), self.HTTP_DELETE)
+    
+    # TODO, probably better naming for this
+    def post_subscribers_to_list(self, profiles):
+        """
+        Args:
+            profiles (dict): for POST -> data must be a list of objects
+        """
+        params = {
+            "profiles": profiles
+        }
+        return self._v2_request('{}/{}/{}'.format(self.LIST, list_id, self.SUBSCRIBE), self.HTTP_POST, params)
+    
+    def get_subscription_status
     
     def list_subscription(self, list_id, data, subscription_type='subscribe', method="GET"):
         """
         args:
             list_id: str() the list id
             subscription_type: str() subscribe or members depending on the action
-            data: for POST -> data must be a list of objects, for GET data must be a list of emails
+            
             
         """
         api_version = 'v2'
@@ -54,16 +74,11 @@ class Lists(Klaviyo):
                 'emails': data
             }
 
-            return self._request('list/{}/{}'.format(list_id, subscription_type), params, api_version=api_version)
+            return self._request('list/{}/{}'.format(list_id, subscription_type), self.HTTP_GET, params, api_version=api_version)
 
         elif method.upper() == "POST":
             if not isinstance(data, list) or not isinstance(data[0], dict):
                 raise KlaviyoException("Data must be a list of objects")
-
-            params = {
-                "profiles": data
-            }
-            return self._request('list/{}/{}'.format(list_id, subscription_type), params, method=method, api_version=api_version)
 
     def unsubscribe_from_list(self, list_id, emails, subscription_type='subscribe'):
         """
@@ -72,12 +87,11 @@ class Lists(Klaviyo):
             subscription_type: str() subscribe or members depending on the action
             emails: a list of emails
         """
-        api_version = 'v2'
 
         params = {
             'emails': emails
         }
-        return self._request('list/{}/{}'.format(list_id, subscription_type), params, method="DELETE", api_version=api_version)
+        return self._v2_request('list/{}/{}'.format(list_id, subscription_type), self.HTTP_DELETE, params)
 
     def list_exclusions(self, list_id, marker=None):
         """
@@ -85,10 +99,9 @@ class Lists(Klaviyo):
             list_id: str() the list id
             marker: int() optional returned from the previous get call
         """
-        api_version = 'v2'
         params = self._build_marker_param(marker)
 
-        return self._request('list/{}/exclusions/all', params, api_version=api_version)
+        return self._v2_request('list/{}/exclusions/all'.format(list_id), params)
 
     def all_members(self, group_id, marker=None):
         """
@@ -96,7 +109,6 @@ class Lists(Klaviyo):
             id: str() the list id or the segment id
             marker: int() optional returned from the previous get call
         """
-        api_version = 'v2'
         params = self._build_marker_param(marker)
 
-        return self._request('group/{}/members/all'.format(group_id), params, api_version=api_version)
+        return self._v2_request('group/{}/members/all'.format(group_id), params)
