@@ -251,6 +251,19 @@ class Klaviyo(object):
 
         return self._request('group/{}/members/all'.format(group_id), params, api_version=api_version)
 
+    def add_members(self, list_id, data):
+        """
+        args:
+            list_id: str() the list id
+            data: a list of objects
+        """
+        api_version = 'v2'
+        params = {
+            "profiles": data
+        }
+
+        return self._request('list/{}/members'.format(list_id), params, method="POST", api_version=api_version)
+
     ######################
     # PROFILE API
     ######################
