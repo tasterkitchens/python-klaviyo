@@ -283,6 +283,16 @@ class Klaviyo(object):
     def get_profile(self, profile_id):
         return self._request('person/{}'.format(profile_id))
 
+    def update_profile(self, profile_id, data):
+        """
+        args:
+            profile_id: str() the profile id
+            data: profile attributes
+        """
+        api_version = 'v1'
+
+        return self._request('person/{}'.format(profile_id), data, method="PUT", api_version=api_version)
+
     def get_profile_metrics_timeline(self, profile_id, since=None, count=100, sort='desc'):
         """
         args:
