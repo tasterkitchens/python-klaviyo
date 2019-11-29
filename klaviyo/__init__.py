@@ -264,6 +264,19 @@ class Klaviyo(object):
 
         return self._request('list/{}/members'.format(list_id), params, method="POST", api_version=api_version)
 
+    def remove_members(self, list_id, data):
+        """
+        args:
+            list_id: str() the list id
+            data: a list of objects
+        """
+        api_version = 'v2'
+        params = {
+            "emails": data
+        }
+
+        return self._request('list/{}/members'.format(list_id), params, method="DELETE", api_version=api_version)
+
     ######################
     # PROFILE API
     ######################
